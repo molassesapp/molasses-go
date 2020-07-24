@@ -1,3 +1,3 @@
-module github.com/molassessapp/molasses-go
+module github.com/molassesapp/molasses-go
 
 go 1.13
