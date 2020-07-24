@@ -29,7 +29,6 @@ type client struct {
 	apiKey        string
 	url           string
 	debug         bool
-	lastUpdate    time.Time
 	etag          string
 	initiated     bool
 	featuresCache map[string]feature
@@ -61,7 +60,7 @@ func Init(options ClientOptions) (Client, error) {
 	}
 
 	if molassesClient.url == "" {
-		molassesClient.url = "https://www.molasses.app"
+		molassesClient.url = "https://api.molasses.app"
 	}
 
 	molassesClient.featuresCache = make(map[string]feature)
@@ -80,8 +79,11 @@ func (c *client) refresh() {
 	}
 }
 
+type features struct {
+	Features []feature `json:"features"`
+}
 type featuresResponse struct {
-	Data []feature `json:"data"`
+	Data features `json:"data"`
 }
 
 // IsActive - Check to see if a feature is active for a user
@@ -97,7 +99,7 @@ func (c *client) IsActive(key string, user ...User) bool {
 }
 
 func (c *client) fetchFeatures() error {
-	req, err := http.NewRequest("GET", c.url+"/v1/sdk/features", nil)
+	req, err := http.NewRequest("GET", c.url+"/v1/get-features", nil)
 	if err != nil {
 		return err
 	}
@@ -114,7 +116,7 @@ func (c *client) fetchFeatures() error {
 	}
 	var b featuresResponse
 	_ = json.NewDecoder(res.Body).Decode(&b)
-	for _, feature := range b.Data {
+	for _, feature := range b.Data.Features {
 		key := feature.Key
 		c.featuresCache[key] = feature
 	}
