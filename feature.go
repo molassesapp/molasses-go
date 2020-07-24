@@ -26,6 +26,7 @@ type featureSegment struct {
 	SegmentType     segmentType      `json:"segmentType"`
 	UserConstraints []userConstraint `json:"userConstraints"`
 	Percentage      int              `json:"percentage"`
+	Constraint      operator         `json:"constraint"`
 }
 
 type environment struct {
@@ -46,6 +47,7 @@ var (
 type operator string
 
 var (
+	any                  operator = "any"
 	all                  operator = "all"
 	in                   operator = "in"
 	nin                  operator = "nin"
@@ -134,40 +136,53 @@ func getUserPercentage(user User, segment featureSegment) bool {
 }
 
 func isUserInSegment(user User, s featureSegment) bool {
-	for _, constraint := range s.UserConstraints {
+	constraintsToBeMet := len(s.UserConstraints)
+	if s.Constraint == any {
+		constraintsToBeMet = 1
+	}
+	constraintsMet := 0
+	for i := 0; i < len(s.UserConstraints); i++ {
+		constraint := s.UserConstraints[i]
 		userValue, paramExists := user.Params[constraint.UserParam]
 		if constraint.UserParam == "id" {
 			paramExists = true
 			userValue = user.ID
 		}
-		switch constraint.Operator {
-		case in:
-			if paramExists && containsParamValue(constraint.Values, userValue) {
-				return true
-			}
-		case nin:
-			if paramExists && !containsParamValue(constraint.Values, userValue) {
-				return true
-			}
-		case equals:
-			if paramExists && userValue == constraint.Values {
-				return true
-			}
-		case doesNotEqual:
-			if paramExists && userValue != constraint.Values {
-				return true
-			}
-		case contains:
-			if paramExists && strings.Contains(userValue, constraint.Values) {
-				return true
-			}
-		case doesNotContain:
-			if paramExists && !strings.Contains(userValue, constraint.Values) {
-				return true
-			}
-		default:
-			return false
+		if meetsConstraint(userValue, paramExists, constraint) {
+			constraintsMet = constraintsMet + 1
 		}
+	}
+	return constraintsMet >= constraintsToBeMet
+}
+
+func meetsConstraint(userValue string, paramExists bool, constraint userConstraint) bool {
+	switch constraint.Operator {
+	case in:
+		if paramExists && containsParamValue(constraint.Values, userValue) {
+			return true
+		}
+	case nin:
+		if paramExists && !containsParamValue(constraint.Values, userValue) {
+			return true
+		}
+	case equals:
+		if paramExists && userValue == constraint.Values {
+			return true
+		}
+	case doesNotEqual:
+		if paramExists && userValue != constraint.Values {
+			return true
+		}
+	case contains:
+		if paramExists && strings.Contains(userValue, constraint.Values) {
+			return true
+		}
+	case doesNotContain:
+		if paramExists && !strings.Contains(userValue, constraint.Values) {
+			return true
+		}
+	default:
+		return false
 	}
 	return false
 }
