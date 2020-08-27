@@ -6,6 +6,7 @@ Molasses uses polling to check if you have updated features. Once initialized, i
 package molasses
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,10 +19,14 @@ type ClientOptions struct {
 	URL        string       // URL can be updated if you are using a hosted version of Molasses
 	Debug      bool         // Debug - whether to log debug info
 	HTTPClient *http.Client // HTTPClient - Pass in your own http client
+	SendEvents bool
 }
 
 type ClientInterface interface {
 	IsActive(key string, user ...User) bool
+	Stop()
+	IsInitiated() bool
+	ExperimentSuccess(key string, user User, additionalDetails map[string]string)
 }
 type Client struct {
 	client
@@ -35,6 +40,7 @@ type client struct {
 	initiated     bool
 	featuresCache map[string]feature
 	refreshTicker *time.Ticker
+	sendEvents    bool
 }
 
 // Init - Creates a new client to interface with Molasses.
@@ -47,6 +53,7 @@ func Init(options ClientOptions) (ClientInterface, error) {
 		debug:         options.Debug,
 		url:           options.URL,
 		refreshTicker: time.NewTicker(15 * time.Second),
+		sendEvents:    options.SendEvents,
 	}
 
 	if molassesClient.httpClient == nil {
@@ -74,16 +81,67 @@ func Init(options ClientOptions) (ClientInterface, error) {
 // IsActive - Check to see if a feature is active for a user.
 // You must pass the key of the feature (ex. SHOW_USER_ONBOARDING) and optionally pass the user who you are evaluating.
 // if you pass more than 1 user value, the first will only be evaluated
-func (c *Client) IsActive(key string, user ...User) bool {
+func (c *client) IsActive(key string, user ...User) bool {
+	f := c.featuresCache[key]
 	switch len(user) {
 	case 0:
-		return isActive(c.featuresCache[key], nil)
+		return isActive(f, nil)
 	default:
-		return isActive(c.featuresCache[key], &user[0])
+		result := isActive(f, &user[0])
+		var r = "experiment"
+		if result {
+			r = "control"
+		}
+		defer c.uploadEvent(eventOptions{
+			Event:       "experiment_started",
+			Tags:        user[0].Params,
+			UserID:      user[0].ID,
+			FeatureID:   f.ID,
+			FeatureName: key,
+			TestType:    r,
+		})
+		return result
 	}
 }
-func (c *Client) refresh() {
-	c.fetchFeatures()
+
+func (c *client) IsInitiated() bool {
+	return c.initiated
+}
+
+func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[string]string) {
+
+	if !c.initiated {
+		return
+	}
+
+	f := c.featuresCache[key]
+	result := isActive(f, &user)
+
+	var r = "experiment"
+	if result {
+		r = "control"
+	}
+
+	for k, v := range additionalDetails {
+		user.Params[k] = v
+	}
+
+	c.uploadEvent(eventOptions{
+		Event:       "experiment_success",
+		Tags:        user.Params,
+		UserID:      user.ID,
+		FeatureID:   f.ID,
+		FeatureName: key,
+		TestType:    r,
+	})
+}
+
+func (c *client) Stop() {
+	c.refreshTicker.Stop()
+	c.initiated = false
+}
+
+func (c *client) refresh() {
 	for {
 		select {
 		case <-c.refreshTicker.C:
@@ -99,27 +157,25 @@ type featuresResponse struct {
 	Data features `json:"data"`
 }
 
-func (c *client) uploadEvent() {
-
-	// private uploadEvent(eventOptions: EventOptions) {
-	req, err := http.NewRequest("POST", c.url+"/analytics", nil)
+func (c *client) uploadEvent(e eventOptions) error {
+	if !c.sendEvents {
+		return nil
+	}
+	body, err := json.Marshal(e)
 	if err != nil {
 		return err
 	}
+	req, err := http.NewRequest("POST", c.url+"/analytics", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
 	if c.etag != "" {
 		req.Header.Add("If-None-Match", c.etag)
 	}
 	req.Header.Add("Authorization", "Bearer "+c.apiKey)
 	go c.httpClient.Do(req)
-	//   const headers = { Authorization: "Bearer " + this.options.APIKey }
-	//   const data = {
-	//     ...eventOptions,
-	//     tags: JSON.stringify(eventOptions.tags),
-	//   }
-	//   this.axios.post("/analytics", data, {
-	//     headers,
-	//   })
-	// }
+	return nil
 }
 
 type eventOptions struct {
@@ -131,7 +187,7 @@ type eventOptions struct {
 	TestType    string            `json:"testType"`
 }
 
-func (c *Client) fetchFeatures() error {
+func (c *client) fetchFeatures() error {
 	req, err := http.NewRequest("GET", c.url+"/get-features", nil)
 	if err != nil {
 		return err
@@ -148,11 +204,13 @@ func (c *Client) fetchFeatures() error {
 		return nil
 	}
 	var b featuresResponse
+
 	_ = json.NewDecoder(res.Body).Decode(&b)
 	for _, feature := range b.Data.Features {
 		key := feature.Key
 		c.featuresCache[key] = feature
 	}
+	c.initiated = true
 	c.etag = res.Header.Get("Etag")
 	return nil
 }
