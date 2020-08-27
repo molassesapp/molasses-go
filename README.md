@@ -1,7 +1,7 @@
-<h1 align="center">Molasses-Go</h1>
 <p align="center">
 <img src="https://raw.githubusercontent.com/molassesapp/molasses-go/main/logo.png" style="margin: 0px auto;" width="200"/></p>
 
+<h1 align="center">Molasses-Go</h1>
 A Go SDK for Molasses. It allows you to evaluate user's status for a feature. It also helps simplify logging events for A/B testing.
 
 Molasses uses polling to check if you have updated features. Once initialized, it takes microseconds to evaluate if a user is active.
