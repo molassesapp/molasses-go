@@ -19,7 +19,11 @@ type ClientOptions struct {
 	URL        string       // URL can be updated if you are using a hosted version of Molasses
 	Debug      bool         // Debug - whether to log debug info
 	HTTPClient *http.Client // HTTPClient - Pass in your own http client
-	SendEvents bool
+	SendEvents *bool
+}
+
+func Bool(value bool) *bool {
+	return &value
 }
 
 type ClientInterface interface {
@@ -46,6 +50,10 @@ type client struct {
 // Init - Creates a new client to interface with Molasses.
 // Receives a ClientOptions
 func Init(options ClientOptions) (ClientInterface, error) {
+	var sendEvents bool = true
+	if options.SendEvents != nil {
+		sendEvents = *options.SendEvents
+	}
 
 	molassesClient := &client{
 		httpClient:    options.HTTPClient,
@@ -53,7 +61,7 @@ func Init(options ClientOptions) (ClientInterface, error) {
 		debug:         options.Debug,
 		url:           options.URL,
 		refreshTicker: time.NewTicker(15 * time.Second),
-		sendEvents:    options.SendEvents,
+		sendEvents:    sendEvents,
 	}
 
 	if molassesClient.httpClient == nil {
@@ -62,10 +70,6 @@ func Init(options ClientOptions) (ClientInterface, error) {
 
 	if molassesClient.apiKey == "" {
 		return &client{}, errors.New("API KEY must be supplied")
-	}
-
-	if molassesClient.httpClient == nil {
-		molassesClient.httpClient = &http.Client{}
 	}
 
 	if molassesClient.url == "" {
