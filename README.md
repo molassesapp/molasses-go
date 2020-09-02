@@ -18,7 +18,9 @@ go get github.com/molassesapp/molasses-go
 
 ## Usage
 
-Start by initializing the client with an `APIKey`
+### Initialization
+
+Start by initializing the client with an `APIKey`. This begins the polling for any feature updates. The updates happen every 15 seconds.
 
 ```go
 	client, err := molasses.Init(molasses.ClientOptions{
@@ -26,11 +28,20 @@ Start by initializing the client with an `APIKey`
   })
 ```
 
-Then you can call `isActive` with the key name and optionally a user's information
+If you decide not to track analytics events (experiment started, experiment success) you can turn them off by setting the `SendEvents` field to `molasses.bool(false)`
 
 ```go
-client.IsActive("TEST_FEATURE_FOR_USER")
+	client, err := molasses.Init(molasses.ClientOptions{
+		APIKey: 		os.Getenv("MOLASSES_API_KEY"),
+		SendEvents: molasses.Bool(false),
+  })
+```
 
+### Check if feature is active
+
+You can call `isActive` with the key name and optionally a user's information. The ID field is used to determine whether a user is part of a percentage of users. If you have other constraints based on user params you can pass those in the `Params` field.
+
+```go
 client.IsActive("TEST_FEATURE_FOR_USER", molasses.User{
 		ID: "baz",
 		Params: map[string]string{
@@ -38,6 +49,29 @@ client.IsActive("TEST_FEATURE_FOR_USER", molasses.User{
 		},
 	})
 ```
+
+You can check if a feature is active for a user who is anonymous by just calling `isActive` with the key. You won't be able to do percentage roll outs or track that user's behavior.
+
+```go
+client.IsActive("TEST_FEATURE_FOR_USER")
+```
+
+### Experiments
+
+To track whether an experiment was successful you can call `ExperimentSuccess`. ExperimentSuccess takes the feature's name, the molasses User and any additional parameters for the event.
+
+```go
+client.ExperimentSuccess("GOOGLE_SSO", molasses.User{
+		ID: "baz",
+		Params: map[string]string{
+			"teamId": "12356",
+		},
+	}, map[string]string{
+		"version": "v2.3.0"
+	})
+```
+
+## Example
 
 ```go
 
