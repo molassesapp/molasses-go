@@ -1,6 +1,7 @@
 package molasses_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +10,17 @@ import (
 	"github.com/molassesapp/molasses-go"
 	"github.com/stretchr/testify/assert"
 )
+
+type MockClient struct {
+	DoFunc func(req *http.Request) (*http.Response, error)
+}
+
+func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+	if m.DoFunc != nil {
+		return m.DoFunc(req)
+	}
+	return nil, errors.New("error http client mock")
+}
 
 func TestInitWithValidFeatureAndStop(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -33,6 +45,23 @@ func TestInitWithValidFeatureAndStop(t *testing.T) {
 	assert.False(t, client.IsActive("MOBILE_CHECKOUT", molasses.User{ID: "USERID1"}))
 	client.Stop()
 	assert.False(t, client.IsInitiated())
+}
+
+func TestInitWithInvalidClientAndStop(t *testing.T) {
+	server := httptest.NewServer(&http.ServeMux{})
+
+	client, err := molasses.Init(molasses.ClientOptions{
+		HTTPClient: &MockClient{},
+		APIKey:     "API_KEY",
+		URL:        server.URL,
+		SendEvents: molasses.Bool(false),
+	})
+	assert.False(t, client.IsInitiated())
+	if err != nil {
+		t.Error(err)
+	}
+	assert.False(t, client.IsActive("GOOGLE_SSO"))
+	assert.False(t, client.IsActive("MOBILE_CHECKOUT", molasses.User{ID: "USERID1"}))
 }
 
 func TestDefaultsAreSet(t *testing.T) {

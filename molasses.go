@@ -16,10 +16,10 @@ import (
 
 // ClientOptions - The options for the Molasses client to start, the APIKey is required
 type ClientOptions struct {
-	APIKey     string       // APIKey is the required field.
-	URL        string       // URL can be updated if you are using a hosted version of Molasses
-	Debug      bool         // Debug - whether to log debug info
-	HTTPClient *http.Client // HTTPClient - Pass in your own http client
+	APIKey     string     // APIKey is the required field.
+	URL        string     // URL can be updated if you are using a hosted version of Molasses
+	Debug      bool       // Debug - whether to log debug info
+	HTTPClient HttpClient // HTTPClient - Pass in your own http client
 	SendEvents *bool
 }
 
@@ -33,11 +33,16 @@ type ClientInterface interface {
 	IsInitiated() bool
 	ExperimentSuccess(key string, user User, additionalDetails map[string]string)
 }
+
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type Client struct {
 	client
 }
 type client struct {
-	httpClient    *http.Client
+	httpClient    HttpClient
 	apiKey        string
 	url           string
 	debug         bool
