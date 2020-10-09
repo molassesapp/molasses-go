@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 )
@@ -77,7 +78,9 @@ func Init(options ClientOptions) (ClientInterface, error) {
 	}
 
 	molassesClient.featuresCache = make(map[string]feature)
-	molassesClient.fetchFeatures()
+	if err := molassesClient.fetchFeatures(); err != nil {
+		log.Println("Error fetching molasses client features", err)
+	}
 	go molassesClient.refresh()
 	return molassesClient, nil
 }
@@ -96,14 +99,18 @@ func (c *client) IsActive(key string, user ...User) bool {
 		if result {
 			r = "control"
 		}
-		defer c.uploadEvent(eventOptions{
-			Event:       "experiment_started",
-			Tags:        user[0].Params,
-			UserID:      user[0].ID,
-			FeatureID:   f.ID,
-			FeatureName: key,
-			TestType:    r,
-		})
+		defer func() {
+			if err := c.uploadEvent(eventOptions{
+				Event:       "experiment_started",
+				Tags:        user[0].Params,
+				UserID:      user[0].ID,
+				FeatureID:   f.ID,
+				FeatureName: key,
+				TestType:    r,
+			}); err != nil {
+				log.Println("Error uploading experiment started event", err)
+			}
+		}()
 		return result
 	}
 }
@@ -130,14 +137,16 @@ func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[
 		user.Params[k] = v
 	}
 
-	c.uploadEvent(eventOptions{
+	if err := c.uploadEvent(eventOptions{
 		Event:       "experiment_success",
 		Tags:        user.Params,
 		UserID:      user.ID,
 		FeatureID:   f.ID,
 		FeatureName: key,
 		TestType:    r,
-	})
+	}); err != nil {
+		log.Println("Error uploading event", err)
+	}
 }
 
 func (c *client) Stop() {
@@ -147,9 +156,9 @@ func (c *client) Stop() {
 
 func (c *client) refresh() {
 	for {
-		select {
-		case <-c.refreshTicker.C:
-			c.fetchFeatures()
+		<-c.refreshTicker.C
+		if err := c.fetchFeatures(); err != nil {
+			log.Println("Error refreshing features", err)
 		}
 	}
 }
@@ -178,7 +187,11 @@ func (c *client) uploadEvent(e eventOptions) error {
 		req.Header.Add("If-None-Match", c.etag)
 	}
 	req.Header.Add("Authorization", "Bearer "+c.apiKey)
-	go c.httpClient.Do(req)
+	go func() {
+		if _, err := c.httpClient.Do(req); err != nil {
+			log.Println("Error uploading event to analytics HTTP endpoint", err)
+		}
+	}()
 	return nil
 }
 
