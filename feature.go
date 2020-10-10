@@ -30,13 +30,6 @@ type featureSegment struct {
 	Constraint      operator         `json:"constraint"`
 }
 
-type environment struct {
-	TeamID      string `json:"teamId"`
-	Name        string `json:"name"`
-	APIKeyValue string `json:"apiKey"`
-	Features    []feature
-}
-
 type segmentType string
 
 var (
@@ -48,18 +41,13 @@ var (
 type operator string
 
 var (
-	any                  operator = "any"
-	all                  operator = "all"
-	in                   operator = "in"
-	nin                  operator = "nin"
-	equals               operator = "equals"
-	doesNotEqual         operator = "doesNotEqual"
-	contains             operator = "contains"
-	doesNotContain       operator = "doesNotContain"
-	greaterThan          operator = "greaterThan"
-	lessThan             operator = "lessThan"
-	greaterThanOrEqualTo operator = "greaterThanOrEqualTo"
-	lessThanOrEqualTo    operator = "lessThanOrEqualTo"
+	any            operator = "any"
+	in             operator = "in"
+	nin            operator = "nin"
+	equals         operator = "equals"
+	doesNotEqual   operator = "doesNotEqual"
+	contains       operator = "contains"
+	doesNotContain operator = "doesNotContain"
 )
 
 func containsParamValue(listAsString string, a string) bool {
