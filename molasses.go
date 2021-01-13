@@ -73,7 +73,7 @@ func Init(options ClientOptions) (ClientInterface, error) {
 	}
 
 	if molassesClient.url == "" {
-		molassesClient.url = "https://us-central1-molasses-36bff.cloudfunctions.net/"
+		molassesClient.url = "https://sdk.molasses.app/v1"
 	}
 
 	molassesClient.featuresCache = make(map[string]feature)
@@ -192,7 +192,7 @@ type eventOptions struct {
 }
 
 func (c *client) fetchFeatures() error {
-	req, err := http.NewRequest("GET", c.url+"/get-features", nil)
+	req, err := http.NewRequest("GET", c.url+"/features", nil)
 	if err != nil {
 		return err
 	}
