@@ -6,9 +6,9 @@
 [![codecov](https://codecov.io/gh/molassesapp/molasses-go/branch/main/graph/badge.svg)](https://codecov.io/gh/molassesapp/molasses-go)
 ![Build status](https://github.com/molassesapp/molasses-go/workflows/Go/badge.svg)
 
-A Go SDK for Molasses. It allows you to evaluate user's status for a feature. It also helps simplify logging events for A/B testing.
+A Go SDK for Molasses. It allows you to evaluate a user's status for a feature. It also helps simplify logging events for A/B testing.
 
-Molasses uses polling to check if you have updated features. Once initialized, it takes microseconds to evaluate if a user is active.
+Molasses uses Server Sent Events for instant updates to feature flags. Once initialized, it takes microseconds to evaluate if a user is active. When you update a feature flag on Molasses all of your clients are instantly updated
 
 ## Install
 
@@ -25,16 +25,16 @@ Start by initializing the client with an `APIKey`. This begins the polling for a
 ```go
 	client, err := molasses.Init(molasses.ClientOptions{
 		APIKey: os.Getenv("MOLASSES_API_KEY"),
-  })
+	})
 ```
 
 If you decide not to track analytics events (experiment started, experiment success) you can turn them off by setting the `SendEvents` field to `molasses.bool(false)`
 
 ```go
 	client, err := molasses.Init(molasses.ClientOptions{
-		APIKey: 		os.Getenv("MOLASSES_API_KEY"),
 		SendEvents: molasses.Bool(false),
-  })
+		APIKey:     os.Getenv("MOLASSES_API_KEY"),
+	})
 ```
 
 ### Check if feature is active
@@ -85,15 +85,15 @@ import (
 func main() {
 	client, err := molasses.Init(molasses.ClientOptions{
 		APIKey: os.Getenv("MOLASSES_API_KEY"),
-    })
+	})
 
-	if client.IsActive("TEST_FEATURE_FOR_USER") {
+	if client.IsActive("New Checkout") {
 		fmt.Println("we are a go")
 	} else {
 		fmt.Println("we are a no go")
 	}
 
-	if client.IsActive("TEST_FEATURE_FOR_USER", molasses.User{
+	if client.IsActive("Another feature", molasses.User{
 		ID: "baz",
 		Params: map[string]string{
 			"teamId": "12356",
