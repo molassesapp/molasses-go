@@ -9,9 +9,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
+
+	sse "github.com/r3labs/sse/v2"
+	"gopkg.in/cenkalti/backoff.v1"
 )
 
 // ClientOptions - The options for the Molasses client to start, the APIKey is required
@@ -21,6 +26,7 @@ type ClientOptions struct {
 	Debug      bool       // Debug - whether to log debug info
 	HTTPClient HttpClient // HTTPClient - Pass in your own http client
 	SendEvents *bool
+	Polling    bool
 }
 
 func Bool(value bool) *bool {
@@ -42,32 +48,72 @@ type Client struct {
 	client
 }
 type client struct {
-	httpClient    HttpClient
-	apiKey        string
-	url           string
-	debug         bool
-	etag          string
-	initiated     bool
-	featuresCache map[string]feature
-	refreshTicker *time.Ticker
-	sendEvents    bool
+	httpClient        HttpClient
+	apiKey            string
+	url               string
+	debug             bool
+	etag              string
+	polling           bool
+	initiated         bool
+	isStreamConnected bool
+	featuresCache     map[string]feature
+	logger            *log.Logger
+	sseClient         *sse.Client
+	eventsChannel     chan *sse.Event
+	refreshTicker     *time.Ticker
+	sendEvents        bool
 }
 
 // Init - Creates a new client to interface with Molasses.
 // Receives a ClientOptions
 func Init(options ClientOptions) (ClientInterface, error) {
 	var sendEvents bool = true
+	polling := options.Polling
 	if options.SendEvents != nil {
 		sendEvents = *options.SendEvents
 	}
 
+	baseURL := "https://sdk.molasses.app/v1"
+	if options.URL != "" {
+		baseURL = options.URL
+	}
+
+	molassesLog := log.New(os.Stderr, "[Molasses]", log.LstdFlags)
+	sseClient := sse.NewClient(baseURL + "/event-stream")
+	sseClient.ResponseValidator = func(c *sse.Client, resp *http.Response) error {
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			// molassesLog.Println("Molasses is unauthorized")
+			return errors.New("Molasses is Unauthorized")
+		}
+
+		if resp.StatusCode >= 500 {
+			// molassesLog.Println(fmt.Sprintf("There is an issue connecting to Molasses status code - %v", resp.StatusCode))
+			return fmt.Errorf("There is an issue connecting to Molasses status code - %v", resp.StatusCode)
+		}
+		return nil
+	}
+
+	sseClient.ReconnectNotify = func(err error, backoff time.Duration) {
+		molassesLog.Println("Reconnect", err, backoff)
+	}
+	backoffStrategy := backoff.NewExponentialBackOff()
+
+	backoffStrategy.MaxElapsedTime = 0
+	sseClient.ReconnectStrategy = backoffStrategy
+	eventsChannel := make(chan *sse.Event)
+
 	molassesClient := &client{
-		httpClient:    options.HTTPClient,
-		apiKey:        options.APIKey,
-		debug:         options.Debug,
-		url:           options.URL,
-		refreshTicker: time.NewTicker(15 * time.Second),
-		sendEvents:    sendEvents,
+		httpClient:        options.HTTPClient,
+		apiKey:            options.APIKey,
+		debug:             options.Debug,
+		url:               baseURL,
+		polling:           polling,
+		sseClient:         sseClient,
+		logger:            molassesLog,
+		isStreamConnected: false,
+		eventsChannel:     eventsChannel,
+		refreshTicker:     time.NewTicker(15 * time.Second),
+		sendEvents:        sendEvents,
 	}
 
 	if molassesClient.httpClient == nil {
@@ -77,15 +123,25 @@ func Init(options ClientOptions) (ClientInterface, error) {
 	if molassesClient.apiKey == "" {
 		return &client{}, errors.New("API KEY must be supplied")
 	}
-
-	if molassesClient.url == "" {
-		molassesClient.url = "https://sdk.molasses.app/v1"
-	}
-
 	molassesClient.featuresCache = make(map[string]feature)
-	if err := molassesClient.fetchFeatures(); err != nil {
-		log.Println("Error fetching molasses client features", err)
+	if polling {
+		if err := molassesClient.fetchFeatures(); err != nil {
+			molassesClient.logger.Printf("Error fetching molasses client features %v", err)
+		} else {
+			molassesClient.logger.Println("Molasses is connected, polling, and initiated")
+		}
+	} else {
+		molassesClient.sseClient.Headers["Authorization"] = "Bearer " + molassesClient.apiKey
+		err := sseClient.SubscribeChan("messages", molassesClient.eventsChannel)
+		if err != nil {
+			return &client{}, errors.New("Failed to connect to Molasses channel")
+		}
+		sseClient.OnDisconnect(func(c *sse.Client) {
+			molassesClient.logger.Printf("Client disconnected")
+			molassesClient.isStreamConnected = false
+		})
 	}
+
 	go molassesClient.refresh()
 	return molassesClient, nil
 }
@@ -94,7 +150,11 @@ func Init(options ClientOptions) (ClientInterface, error) {
 // You must pass the key of the feature (ex. SHOW_USER_ONBOARDING) and optionally pass the user who you are evaluating.
 // if you pass more than 1 user value, the first will only be evaluated
 func (c *client) IsActive(key string, user ...User) bool {
-	f := c.featuresCache[key]
+	f, ok := c.featuresCache[key]
+	if !ok {
+		c.logger.Printf("Warning - feature flag %s not set in environment -", key)
+		return false
+	}
 	switch len(user) {
 	case 0:
 		return isActive(f, nil)
@@ -113,7 +173,7 @@ func (c *client) IsActive(key string, user ...User) bool {
 				FeatureName: key,
 				TestType:    r,
 			}); err != nil {
-				log.Println("Error uploading experiment started event", err)
+				c.logger.Printf("Error uploading experiment started event- %s", err.Error())
 			}
 		}()
 		return result
@@ -150,20 +210,45 @@ func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[
 		FeatureName: key,
 		TestType:    r,
 	}); err != nil {
-		log.Println("Error uploading event", err)
+		c.logger.Printf("Error uploading event- %s", err.Error())
 	}
 }
 
 func (c *client) Stop() {
+	c.sseClient.Unsubscribe(c.eventsChannel)
 	c.refreshTicker.Stop()
 	c.initiated = false
 }
 
 func (c *client) refresh() {
 	for {
-		<-c.refreshTicker.C
-		if err := c.fetchFeatures(); err != nil {
-			log.Println("Error refreshing features", err)
+		select {
+		case res := <-c.eventsChannel:
+			data := res.Data
+			var f featuresResponse
+			err := json.Unmarshal(data, &f)
+			if err != nil {
+				c.logger.Printf("Error refreshing features - %s", err.Error())
+			}
+			for _, feature := range f.Data.Features {
+				key := feature.Key
+				c.featuresCache[key] = feature
+			}
+
+			if !c.isStreamConnected {
+				c.logger.Println("Molasses is connected")
+			}
+			if !c.initiated {
+				c.logger.Println("Molasses is initiated")
+			}
+			c.isStreamConnected = true
+			c.initiated = true
+		case <-c.refreshTicker.C:
+			if c.polling {
+				if err := c.fetchFeatures(); err != nil {
+					c.logger.Printf("Error refreshing features - %s", err.Error())
+				}
+			}
 		}
 	}
 }
@@ -194,7 +279,7 @@ func (c *client) uploadEvent(e eventOptions) error {
 	req.Header.Add("Authorization", "Bearer "+c.apiKey)
 	go func() {
 		if _, err := c.httpClient.Do(req); err != nil {
-			log.Println("Error uploading event to analytics HTTP endpoint", err)
+			c.logger.Printf("Error uploading event to analytics HTTP endpoint - %s", err.Error())
 		}
 	}()
 	return nil

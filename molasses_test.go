@@ -33,6 +33,7 @@ func TestInitWithValidFeatureAndStop(t *testing.T) {
 
 	client, err := molasses.Init(molasses.ClientOptions{
 		HTTPClient: server.Client(),
+		Polling:    true,
 		APIKey:     "API_KEY",
 		URL:        server.URL,
 		SendEvents: molasses.Bool(false),
@@ -52,6 +53,7 @@ func TestInitWithInvalidClientAndStop(t *testing.T) {
 
 	client, err := molasses.Init(molasses.ClientOptions{
 		HTTPClient: &MockClient{},
+		Polling:    true,
 		APIKey:     "API_KEY",
 		URL:        server.URL,
 		SendEvents: molasses.Bool(false),
@@ -67,6 +69,7 @@ func TestInitWithInvalidClientAndStop(t *testing.T) {
 func TestDefaultsAreSet(t *testing.T) {
 	client, err := molasses.Init(molasses.ClientOptions{
 		APIKey:     "API_KEY",
+		Polling:    true,
 		SendEvents: molasses.Bool(false),
 	})
 	assert.True(t, client.IsInitiated())
@@ -78,6 +81,7 @@ func TestDefaultsAreSet(t *testing.T) {
 func TestErrorsWhenAPIKeyIsNotSet(t *testing.T) {
 	_, err := molasses.Init(molasses.ClientOptions{
 		APIKey:     "",
+		Polling:    true,
 		SendEvents: molasses.Bool(false),
 	})
 	if err != nil {
@@ -103,6 +107,7 @@ func TestInitWithValidFeatureWithUser(t *testing.T) {
 
 	client, err := molasses.Init(molasses.ClientOptions{
 		HTTPClient: server.Client(),
+		Polling:    true,
 		APIKey:     "API_KEY",
 		URL:        server.URL,
 	})
@@ -208,6 +213,7 @@ func TestOtherSegments(t *testing.T) {
 
 	client, err := molasses.Init(molasses.ClientOptions{
 		HTTPClient: server.Client(),
+		Polling:    true,
 		APIKey:     "API_KEY",
 		URL:        server.URL,
 	})
@@ -339,6 +345,7 @@ func TestMoreSegments(t *testing.T) {
 
 	client, err := molasses.Init(molasses.ClientOptions{
 		HTTPClient: server.Client(),
+		Polling:    true,
 		APIKey:     "API_KEY",
 		URL:        server.URL,
 	})
