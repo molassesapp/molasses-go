@@ -88,7 +88,7 @@ func Init(options ClientOptions) (ClientInterface, error) {
 
 		if resp.StatusCode >= 500 {
 			// molassesLog.Println(fmt.Sprintf("There is an issue connecting to Molasses status code - %v", resp.StatusCode))
-			return errors.New(fmt.Sprintf("There is an issue connecting to Molasses status code - %v", resp.StatusCode))
+			return fmt.Errorf("There is an issue connecting to Molasses status code - %v", resp.StatusCode)
 		}
 		return nil
 	}
