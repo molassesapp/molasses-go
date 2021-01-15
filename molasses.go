@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -77,15 +78,30 @@ func Init(options ClientOptions) (ClientInterface, error) {
 		baseURL = options.URL
 	}
 
+	molassesLog := log.New(os.Stderr, "[Molasses]", log.LstdFlags)
 	sseClient := sse.NewClient(baseURL + "/event-stream")
+	sseClient.ResponseValidator = func(c *sse.Client, resp *http.Response) error {
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			// molassesLog.Println("Molasses is unauthorized")
+			return errors.New("Molasses is Unauthorized")
+		}
 
+		if resp.StatusCode >= 500 {
+			// molassesLog.Println(fmt.Sprintf("There is an issue connecting to Molasses status code - %v", resp.StatusCode))
+			return errors.New(fmt.Sprintf("There is an issue connecting to Molasses status code - %v", resp.StatusCode))
+		}
+		return nil
+	}
+
+	sseClient.ReconnectNotify = func(err error, backoff time.Duration) {
+		molassesLog.Println("Reconnect", err, backoff)
+	}
 	backoffStrategy := backoff.NewExponentialBackOff()
 
 	backoffStrategy.MaxElapsedTime = 0
 	sseClient.ReconnectStrategy = backoffStrategy
 	eventsChannel := make(chan *sse.Event)
 
-	molassesLog := log.New(os.Stderr, "[Molasses]", log.LstdFlags)
 	molassesClient := &client{
 		httpClient:        options.HTTPClient,
 		apiKey:            options.APIKey,
