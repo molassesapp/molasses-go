@@ -67,7 +67,7 @@ type client struct {
 // Receives a ClientOptions
 func Init(options ClientOptions) (ClientInterface, error) {
 	var sendEvents bool = true
-	polling := options.Polling == true
+	polling := options.Polling
 	if options.SendEvents != nil {
 		sendEvents = *options.SendEvents
 	}
@@ -76,11 +76,15 @@ func Init(options ClientOptions) (ClientInterface, error) {
 	if options.URL != "" {
 		baseURL = options.URL
 	}
+
 	sseClient := sse.NewClient(baseURL + "/event-stream")
+
 	backoffStrategy := backoff.NewExponentialBackOff()
+
 	backoffStrategy.MaxElapsedTime = 0
 	sseClient.ReconnectStrategy = backoffStrategy
 	eventsChannel := make(chan *sse.Event)
+
 	molassesLog := log.New(os.Stderr, "[Molasses]", log.LstdFlags)
 	molassesClient := &client{
 		httpClient:        options.HTTPClient,
@@ -112,7 +116,10 @@ func Init(options ClientOptions) (ClientInterface, error) {
 		}
 	} else {
 		molassesClient.sseClient.Headers["Authorization"] = "Bearer " + molassesClient.apiKey
-		sseClient.SubscribeChan("messages", molassesClient.eventsChannel)
+		err := sseClient.SubscribeChan("messages", molassesClient.eventsChannel)
+		if err != nil {
+			return &client{}, errors.New("Failed to connect to Molasses channel")
+		}
 		sseClient.OnDisconnect(func(c *sse.Client) {
 			molassesClient.logger.Printf("Client disconnected")
 			molassesClient.isStreamConnected = false
