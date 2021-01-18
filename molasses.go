@@ -21,12 +21,12 @@ import (
 
 // ClientOptions - The options for the Molasses client to start, the APIKey is required
 type ClientOptions struct {
-	APIKey     string     // APIKey is the required field.
-	URL        string     // URL can be updated if you are using a hosted version of Molasses
-	Debug      bool       // Debug - whether to log debug info
-	HTTPClient HttpClient // HTTPClient - Pass in your own http client
-	SendEvents *bool
-	Polling    bool
+	APIKey         string     // APIKey is the required field.
+	URL            string     // URL can be updated if you are using a hosted version of Molasses
+	Debug          bool       // Debug - whether to log debug info
+	HTTPClient     HttpClient // HTTPClient - Pass in your own http client
+	AutoSendEvents bool
+	Polling        bool
 }
 
 func Bool(value bool) *bool {
@@ -61,17 +61,13 @@ type client struct {
 	sseClient         *sse.Client
 	eventsChannel     chan *sse.Event
 	refreshTicker     *time.Ticker
-	sendEvents        bool
+	autoSendEvents    bool
 }
 
 // Init - Creates a new client to interface with Molasses.
 // Receives a ClientOptions
 func Init(options ClientOptions) (ClientInterface, error) {
-	var sendEvents bool = true
 	polling := options.Polling
-	if options.SendEvents != nil {
-		sendEvents = *options.SendEvents
-	}
 
 	baseURL := "https://sdk.molasses.app/v1"
 	if options.URL != "" {
@@ -113,7 +109,7 @@ func Init(options ClientOptions) (ClientInterface, error) {
 		isStreamConnected: false,
 		eventsChannel:     eventsChannel,
 		refreshTicker:     time.NewTicker(15 * time.Second),
-		sendEvents:        sendEvents,
+		autoSendEvents:    options.AutoSendEvents,
 	}
 
 	if molassesClient.httpClient == nil {
@@ -165,16 +161,19 @@ func (c *client) IsActive(key string, user ...User) bool {
 			r = "control"
 		}
 		defer func() {
-			if err := c.uploadEvent(eventOptions{
-				Event:       "experiment_started",
-				Tags:        user[0].Params,
-				UserID:      user[0].ID,
-				FeatureID:   f.ID,
-				FeatureName: key,
-				TestType:    r,
-			}); err != nil {
-				c.logger.Printf("Error uploading experiment started event- %s", err.Error())
+			if c.autoSendEvents {
+				if err := c.uploadEvent(eventOptions{
+					Event:       "experiment_started",
+					Tags:        user[0].Params,
+					UserID:      user[0].ID,
+					FeatureID:   f.ID,
+					FeatureName: key,
+					TestType:    r,
+				}); err != nil {
+					c.logger.Printf("Error uploading experiment started event- %s", err.Error())
+				}
 			}
+
 		}()
 		return result
 	}
@@ -182,6 +181,36 @@ func (c *client) IsActive(key string, user ...User) bool {
 
 func (c *client) IsInitiated() bool {
 	return c.initiated
+}
+
+func (c *client) ExperimentStarted(key string, user User, additionalDetails map[string]string) {
+
+	if !c.initiated {
+		return
+	}
+
+	f := c.featuresCache[key]
+	result := isActive(f, &user)
+
+	var r = "experiment"
+	if result {
+		r = "control"
+	}
+
+	for k, v := range additionalDetails {
+		user.Params[k] = v
+	}
+
+	if err := c.uploadEvent(eventOptions{
+		Event:       "experiment_started",
+		Tags:        user.Params,
+		UserID:      user.ID,
+		FeatureID:   f.ID,
+		FeatureName: key,
+		TestType:    r,
+	}); err != nil {
+		c.logger.Printf("Error uploading event- %s", err.Error())
+	}
 }
 
 func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[string]string) {
@@ -261,9 +290,6 @@ type featuresResponse struct {
 }
 
 func (c *client) uploadEvent(e eventOptions) error {
-	if !c.sendEvents {
-		return nil
-	}
 	body, err := json.Marshal(e)
 	if err != nil {
 		return err

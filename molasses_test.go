@@ -32,11 +32,11 @@ func TestInitWithValidFeatureAndStop(t *testing.T) {
 	}))
 
 	client, err := molasses.Init(molasses.ClientOptions{
-		HTTPClient: server.Client(),
-		Polling:    true,
-		APIKey:     "API_KEY",
-		URL:        server.URL,
-		SendEvents: molasses.Bool(false),
+		HTTPClient:     server.Client(),
+		Polling:        true,
+		APIKey:         "API_KEY",
+		URL:            server.URL,
+		AutoSendEvents: false,
 	})
 	assert.True(t, client.IsInitiated())
 	if err != nil {
@@ -52,11 +52,11 @@ func TestInitWithInvalidClientAndStop(t *testing.T) {
 	server := httptest.NewServer(&http.ServeMux{})
 
 	client, err := molasses.Init(molasses.ClientOptions{
-		HTTPClient: &MockClient{},
-		Polling:    true,
-		APIKey:     "API_KEY",
-		URL:        server.URL,
-		SendEvents: molasses.Bool(false),
+		HTTPClient:     &MockClient{},
+		Polling:        true,
+		APIKey:         "API_KEY",
+		URL:            server.URL,
+		AutoSendEvents: false,
 	})
 	assert.False(t, client.IsInitiated())
 	if err != nil {
@@ -68,9 +68,9 @@ func TestInitWithInvalidClientAndStop(t *testing.T) {
 
 func TestDefaultsAreSet(t *testing.T) {
 	client, err := molasses.Init(molasses.ClientOptions{
-		APIKey:     "API_KEY",
-		Polling:    true,
-		SendEvents: molasses.Bool(false),
+		APIKey:         "API_KEY",
+		Polling:        true,
+		AutoSendEvents: false,
 	})
 	assert.True(t, client.IsInitiated())
 	if err != nil {
@@ -80,9 +80,9 @@ func TestDefaultsAreSet(t *testing.T) {
 
 func TestErrorsWhenAPIKeyIsNotSet(t *testing.T) {
 	_, err := molasses.Init(molasses.ClientOptions{
-		APIKey:     "",
-		Polling:    true,
-		SendEvents: molasses.Bool(false),
+		APIKey:         "",
+		Polling:        true,
+		AutoSendEvents: false,
 	})
 	if err != nil {
 		assert.Error(t, err)
