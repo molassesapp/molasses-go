@@ -8,7 +8,7 @@
 
 A Go SDK for Molasses. It allows you to evaluate a user's status for a feature. It also helps simplify logging events for A/B testing.
 
-Molasses uses Server Sent Events for instant updates to feature flags. Once initialized, it takes microseconds to evaluate if a user is active. When you update a feature flag on Molasses all of your clients are instantly updated
+The SDK uses SSE to communicate with the Molasses Application. Once initialized, it takes microseconds to evaluate if a user is active. When you update a feature on Molasses, it sends that update to all of your clients through SSE and users would start experiencing that change instantly.
 
 ## Install
 
@@ -28,13 +28,13 @@ Start by initializing the client with an `APIKey`. This begins the polling for a
 	})
 ```
 
-If you decide not to track analytics events (experiment started, experiment success) you can turn them off by setting the `SendEvents` field to `molasses.bool(false)`
+If you decide to automatically track analytics events (experiment started, experiment success) you can turn them off by setting the `AutoSendEvents` field to `true`
 
 ```go
 	client, err := molasses.Init(molasses.ClientOptions{
-		SendEvents: molasses.Bool(false),
-		APIKey:     os.Getenv("MOLASSES_API_KEY"),
-	})
+		APIKey: 		os.Getenv("MOLASSES_API_KEY"),
+		AutoSendEvents: true,
+  })
 ```
 
 ### Check if feature is active
@@ -57,6 +57,19 @@ client.IsActive("TEST_FEATURE_FOR_USER")
 ```
 
 ### Experiments
+
+To track the start of an experiment, you can call `ExperimentStarted`. ExperimentStarted takes the feature's name, the molasses User and any additional parameters for the event.
+
+```go
+client.ExperimentStarted("GOOGLE_SSO", molasses.User{
+		ID: "baz",
+		Params: map[string]string{
+			"teamId": "12356",
+		},
+	}, map[string]string{
+		"version": "v2.3.0"
+	})
+```
 
 To track whether an experiment was successful you can call `ExperimentSuccess`. ExperimentSuccess takes the feature's name, the molasses User and any additional parameters for the event.
 
