@@ -117,13 +117,13 @@ func TestInitWithValidFeatureWithUser(t *testing.T) {
 	}
 	assert.True(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"foo": "bar",
 		},
 	}))
 	assert.False(t, client.IsActive("MOBILE_CHECKOUT", molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"foo": "bar",
 		},
 	}))
@@ -223,14 +223,14 @@ func TestOtherSegments(t *testing.T) {
 	}
 	experimentUser := molasses.User{
 		ID: "1235",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser":    "false",
 			"experimentUser": "yes",
 		},
 	}
 	controlUser := molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser":    "true",
 			"experimentUser": "nope",
 		},
@@ -241,14 +241,14 @@ func TestOtherSegments(t *testing.T) {
 	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]string{})
 	assert.False(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "1",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
 
 	assert.True(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "2",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
@@ -355,13 +355,13 @@ func TestMoreSegments(t *testing.T) {
 	}
 	experimentUser := molasses.User{
 		ID: "1235",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"experimentUser": "yes",
 		},
 	}
 	controlUser := molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser":    "true",
 			"experimentUser": "nope",
 		},
@@ -375,14 +375,14 @@ func TestMoreSegments(t *testing.T) {
 	})
 	assert.False(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "5",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
 
 	assert.True(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "2",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))

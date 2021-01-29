@@ -3,6 +3,7 @@ package molasses
 import (
 	"hash/crc32"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -45,6 +46,10 @@ var (
 	in             operator = "in"
 	nin            operator = "nin"
 	equals         operator = "equals"
+	gte            operator = "gte"
+	gt             operator = "gt"
+	lt             operator = "lt"
+	lte            operator = "lte"
 	doesNotEqual   operator = "doesNotEqual"
 	contains       operator = "contains"
 	doesNotContain operator = "doesNotContain"
@@ -63,7 +68,7 @@ func containsParamValue(listAsString string, a string) bool {
 // User - The representation of your user
 type User struct {
 	ID     string
-	Params map[string]string
+	Params map[string]interface{}
 }
 
 func isActive(f feature, user *User) bool {
@@ -128,14 +133,84 @@ func isUserInSegment(user User, s featureSegment) bool {
 			paramExists = true
 			userValue = user.ID
 		}
-		if meetsConstraint(userValue, paramExists, constraint) {
-			constraintsMet = constraintsMet + 1
+
+		switch v := userValue.(type) {
+		case bool:
+			if meetsConstraintForBool(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+		case string:
+			if meetsConstraintForString(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+		case int:
+			if meetsConstraintForInt(int64(v), paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+
 		}
+
 	}
 	return constraintsMet >= constraintsToBeMet
 }
 
-func meetsConstraint(userValue string, paramExists bool, constraint userConstraint) bool {
+func meetsConstraintForBool(userValue bool, paramExists bool, constraint userConstraint) bool {
+	values, err := strconv.ParseBool(constraint.Values)
+	if err != nil {
+		return false
+	}
+	switch constraint.Operator {
+	case equals:
+		if paramExists && userValue == values {
+			return true
+		}
+	case doesNotEqual:
+		if paramExists && userValue != values {
+			return true
+		}
+	default:
+		return false
+	}
+	return false
+}
+
+func meetsConstraintForInt(userValue int64, paramExists bool, constraint userConstraint) bool {
+	values, err := strconv.ParseInt(constraint.Values, 10, 64)
+	if err != nil {
+		return false
+	}
+	switch constraint.Operator {
+	case equals:
+		if paramExists && userValue == values {
+			return true
+		}
+	case doesNotEqual:
+		if paramExists && userValue != values {
+			return true
+		}
+	case gt:
+		if paramExists && userValue > values {
+			return true
+		}
+	case lt:
+		if paramExists && userValue < values {
+			return true
+		}
+	case gte:
+		if paramExists && userValue >= values {
+			return true
+		}
+	case lte:
+		if paramExists && userValue <= values {
+			return true
+		}
+	default:
+		return false
+	}
+	return false
+}
+
+func meetsConstraintForString(userValue string, paramExists bool, constraint userConstraint) bool {
 	switch constraint.Operator {
 	case in:
 		if paramExists && containsParamValue(constraint.Values, userValue) {

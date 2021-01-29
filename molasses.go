@@ -37,6 +37,7 @@ type ClientInterface interface {
 	IsActive(key string, user ...User) bool
 	Stop()
 	IsInitiated() bool
+	ExperimentStarted(key string, user User, additionalDetails map[string]string)
 	ExperimentSuccess(key string, user User, additionalDetails map[string]string)
 }
 
@@ -312,12 +313,12 @@ func (c *client) uploadEvent(e eventOptions) error {
 }
 
 type eventOptions struct {
-	FeatureID   string            `json:"featureId"`
-	UserID      string            `json:"userId"`
-	FeatureName string            `json:"featureName"`
-	Event       string            `json:"event"`
-	Tags        map[string]string `json:"tags"`
-	TestType    string            `json:"testType"`
+	FeatureID   string                 `json:"featureId"`
+	UserID      string                 `json:"userId"`
+	FeatureName string                 `json:"featureName"`
+	Event       string                 `json:"event"`
+	Tags        map[string]interface{} `json:"tags"`
+	TestType    string                 `json:"testType"`
 }
 
 func (c *client) fetchFeatures() error {
