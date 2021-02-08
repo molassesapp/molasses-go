@@ -37,6 +37,7 @@ type ClientInterface interface {
 	IsActive(key string, user ...User) bool
 	Stop()
 	IsInitiated() bool
+	Track(eventName string, user User, additionalDetails map[string]string)
 	ExperimentStarted(key string, user User, additionalDetails map[string]string)
 	ExperimentSuccess(key string, user User, additionalDetails map[string]string)
 }
@@ -209,6 +210,21 @@ func (c *client) ExperimentStarted(key string, user User, additionalDetails map[
 		FeatureID:   f.ID,
 		FeatureName: key,
 		TestType:    r,
+	}); err != nil {
+		c.logger.Printf("Error uploading event- %s", err.Error())
+	}
+}
+
+func (c *client) Track(eventName string, user User, additionalDetails map[string]string) {
+
+	for k, v := range additionalDetails {
+		user.Params[k] = v
+	}
+
+	if err := c.uploadEvent(eventOptions{
+		Event:  eventName,
+		Tags:   user.Params,
+		UserID: user.ID,
 	}); err != nil {
 		c.logger.Printf("Error uploading event- %s", err.Error())
 	}

@@ -56,6 +56,21 @@ You can check if a feature is active for a user who is anonymous by just calling
 client.IsActive("TEST_FEATURE_FOR_USER")
 ```
 
+### Track Events
+
+If you want to track any event call the `Track` method. `Track` takes the event's name, the molasses User and any additional parameters for the event.
+
+```go
+client.Track("Checkout Submitted", molasses.User{
+		ID: "baz",
+		Params: map[string]string{
+			"teamId": "12356",
+		},
+	}, map[string]string{
+		"version": "v2.3.0"
+	})
+```
+
 ### Experiments
 
 To track the start of an experiment, you can call `ExperimentStarted`. ExperimentStarted takes the feature's name, the molasses User and any additional parameters for the event.

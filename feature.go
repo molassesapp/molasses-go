@@ -1,6 +1,8 @@
 package molasses
 
 import (
+	"errors"
+	"fmt"
 	"hash/crc32"
 	"math"
 	"strconv"
@@ -133,18 +135,29 @@ func isUserInSegment(user User, s featureSegment) bool {
 			paramExists = true
 			userValue = user.ID
 		}
-
-		switch v := userValue.(type) {
-		case bool:
+		switch constraint.UserParamType {
+		case "number":
+			v, err := getFloat64Value(userValue)
+			if err != nil {
+				continue
+			}
+			if meetsConstraintForNumber(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+		case "bool":
+			v, err := getBoolValue(userValue)
+			if err != nil {
+				continue
+			}
 			if meetsConstraintForBool(v, paramExists, constraint) {
 				constraintsMet = constraintsMet + 1
 			}
-		case string:
-			if meetsConstraintForString(v, paramExists, constraint) {
-				constraintsMet = constraintsMet + 1
+		default:
+			v, err := getStringValue(userValue)
+			if err != nil {
+				continue
 			}
-		case int:
-			if meetsConstraintForInt(int64(v), paramExists, constraint) {
+			if meetsConstraintForString(v, paramExists, constraint) {
 				constraintsMet = constraintsMet + 1
 			}
 
@@ -152,6 +165,47 @@ func isUserInSegment(user User, s featureSegment) bool {
 
 	}
 	return constraintsMet >= constraintsToBeMet
+}
+
+func getFloat64Value(value interface{}) (float64, error) {
+	switch v := value.(type) {
+	case bool:
+		return 0.0, errors.New("not valid value")
+	case string:
+		return strconv.ParseFloat(v, 10)
+	case uint:
+	case int:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	}
+	return 0.0, errors.New("not valid value")
+}
+
+func getBoolValue(value interface{}) (bool, error) {
+	switch v := value.(type) {
+	case bool:
+		return v, nil
+	case string:
+		return strconv.ParseBool(v)
+	case int:
+	case float64:
+		return v > 0.0, nil
+	}
+	return false, errors.New("not valid value")
+}
+
+func getStringValue(value interface{}) (string, error) {
+	switch v := value.(type) {
+	case bool:
+		return strconv.FormatBool(v), nil
+	case string:
+		return v, nil
+	case int:
+	case float64:
+		return fmt.Sprintf("%v", v), nil
+	}
+	return "", errors.New("not valid value")
 }
 
 func meetsConstraintForBool(userValue bool, paramExists bool, constraint userConstraint) bool {
@@ -174,8 +228,8 @@ func meetsConstraintForBool(userValue bool, paramExists bool, constraint userCon
 	return false
 }
 
-func meetsConstraintForInt(userValue int64, paramExists bool, constraint userConstraint) bool {
-	values, err := strconv.ParseInt(constraint.Values, 10, 64)
+func meetsConstraintForNumber(userValue float64, paramExists bool, constraint userConstraint) bool {
+	values, err := strconv.ParseFloat(constraint.Values, 10)
 	if err != nil {
 		return false
 	}
