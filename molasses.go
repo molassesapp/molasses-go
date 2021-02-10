@@ -29,10 +29,6 @@ type ClientOptions struct {
 	Polling        bool
 }
 
-func Bool(value bool) *bool {
-	return &value
-}
-
 type ClientInterface interface {
 	IsActive(key string, user ...User) bool
 	Stop()

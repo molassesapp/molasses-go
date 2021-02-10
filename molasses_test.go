@@ -492,6 +492,8 @@ func TestMoreSegments(t *testing.T) {
 		},
 	}
 	assert.False(t, client.IsActive("GOOGLE_SSO", controlUser))
+	client.ExperimentStarted("GOOGLE_SSO", controlUser, map[string]string{})
+	client.Track("Checkout Started", controlUser, map[string]string{})
 	client.ExperimentSuccess("GOOGLE_SSO", controlUser, map[string]string{})
 	assert.True(t, client.IsActive("GOOGLE_SSO", experimentUser))
 	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]string{
