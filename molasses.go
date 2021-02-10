@@ -29,14 +29,12 @@ type ClientOptions struct {
 	Polling        bool
 }
 
-func Bool(value bool) *bool {
-	return &value
-}
-
 type ClientInterface interface {
 	IsActive(key string, user ...User) bool
 	Stop()
 	IsInitiated() bool
+	Track(eventName string, user User, additionalDetails map[string]string)
+	ExperimentStarted(key string, user User, additionalDetails map[string]string)
 	ExperimentSuccess(key string, user User, additionalDetails map[string]string)
 }
 
@@ -213,6 +211,21 @@ func (c *client) ExperimentStarted(key string, user User, additionalDetails map[
 	}
 }
 
+func (c *client) Track(eventName string, user User, additionalDetails map[string]string) {
+
+	for k, v := range additionalDetails {
+		user.Params[k] = v
+	}
+
+	if err := c.uploadEvent(eventOptions{
+		Event:  eventName,
+		Tags:   user.Params,
+		UserID: user.ID,
+	}); err != nil {
+		c.logger.Printf("Error uploading event- %s", err.Error())
+	}
+}
+
 func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[string]string) {
 
 	if !c.initiated {
@@ -312,12 +325,12 @@ func (c *client) uploadEvent(e eventOptions) error {
 }
 
 type eventOptions struct {
-	FeatureID   string            `json:"featureId"`
-	UserID      string            `json:"userId"`
-	FeatureName string            `json:"featureName"`
-	Event       string            `json:"event"`
-	Tags        map[string]string `json:"tags"`
-	TestType    string            `json:"testType"`
+	FeatureID   string                 `json:"featureId"`
+	UserID      string                 `json:"userId"`
+	FeatureName string                 `json:"featureName"`
+	Event       string                 `json:"event"`
+	Tags        map[string]interface{} `json:"tags"`
+	TestType    string                 `json:"testType"`
 }
 
 func (c *client) fetchFeatures() error {

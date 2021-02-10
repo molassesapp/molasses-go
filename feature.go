@@ -1,8 +1,11 @@
 package molasses
 
 import (
+	"errors"
+	"fmt"
 	"hash/crc32"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -45,6 +48,10 @@ var (
 	in             operator = "in"
 	nin            operator = "nin"
 	equals         operator = "equals"
+	gte            operator = "gte"
+	gt             operator = "gt"
+	lt             operator = "lt"
+	lte            operator = "lte"
 	doesNotEqual   operator = "doesNotEqual"
 	contains       operator = "contains"
 	doesNotContain operator = "doesNotContain"
@@ -63,7 +70,7 @@ func containsParamValue(listAsString string, a string) bool {
 // User - The representation of your user
 type User struct {
 	ID     string
-	Params map[string]string
+	Params map[string]interface{}
 }
 
 func isActive(f feature, user *User) bool {
@@ -128,14 +135,136 @@ func isUserInSegment(user User, s featureSegment) bool {
 			paramExists = true
 			userValue = user.ID
 		}
-		if meetsConstraint(userValue, paramExists, constraint) {
-			constraintsMet = constraintsMet + 1
+		switch constraint.UserParamType {
+		case "number":
+			v, err := getFloat64Value(userValue)
+			if err != nil {
+				continue
+			}
+			if meetsConstraintForNumber(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+		case "bool":
+			v, err := getBoolValue(userValue)
+			if err != nil {
+				continue
+			}
+			if meetsConstraintForBool(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+		default:
+			v, err := getStringValue(userValue)
+			if err != nil {
+				continue
+			}
+			if meetsConstraintForString(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
+
 		}
+
 	}
 	return constraintsMet >= constraintsToBeMet
 }
 
-func meetsConstraint(userValue string, paramExists bool, constraint userConstraint) bool {
+func getFloat64Value(value interface{}) (float64, error) {
+	switch v := value.(type) {
+	case bool:
+		return 0.0, errors.New("not valid value")
+	case string:
+		return strconv.ParseFloat(v, 10)
+	case uint:
+	case int:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	}
+	return 0.0, errors.New("not valid value")
+}
+
+func getBoolValue(value interface{}) (bool, error) {
+	switch v := value.(type) {
+	case bool:
+		return v, nil
+	case string:
+		return strconv.ParseBool(v)
+	case int:
+	case float64:
+		return v > 0.0, nil
+	}
+	return false, errors.New("not valid value")
+}
+
+func getStringValue(value interface{}) (string, error) {
+	switch v := value.(type) {
+	case bool:
+		return strconv.FormatBool(v), nil
+	case string:
+		return v, nil
+	case int:
+	case float64:
+		return fmt.Sprintf("%v", v), nil
+	}
+	return "", errors.New("not valid value")
+}
+
+func meetsConstraintForBool(userValue bool, paramExists bool, constraint userConstraint) bool {
+	values, err := strconv.ParseBool(constraint.Values)
+	if err != nil {
+		return false
+	}
+	switch constraint.Operator {
+	case equals:
+		if paramExists && userValue == values {
+			return true
+		}
+	case doesNotEqual:
+		if paramExists && userValue != values {
+			return true
+		}
+	default:
+		return false
+	}
+	return false
+}
+
+func meetsConstraintForNumber(userValue float64, paramExists bool, constraint userConstraint) bool {
+	values, err := strconv.ParseFloat(constraint.Values, 10)
+	if err != nil {
+		return false
+	}
+	switch constraint.Operator {
+	case equals:
+		if paramExists && userValue == values {
+			return true
+		}
+	case doesNotEqual:
+		if paramExists && userValue != values {
+			return true
+		}
+	case gt:
+		if paramExists && userValue > values {
+			return true
+		}
+	case lt:
+		if paramExists && userValue < values {
+			return true
+		}
+	case gte:
+		if paramExists && userValue >= values {
+			return true
+		}
+	case lte:
+		if paramExists && userValue <= values {
+			return true
+		}
+	default:
+		return false
+	}
+	return false
+}
+
+func meetsConstraintForString(userValue string, paramExists bool, constraint userConstraint) bool {
 	switch constraint.Operator {
 	case in:
 		if paramExists && containsParamValue(constraint.Values, userValue) {

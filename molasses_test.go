@@ -117,13 +117,13 @@ func TestInitWithValidFeatureWithUser(t *testing.T) {
 	}
 	assert.True(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"foo": "bar",
 		},
 	}))
 	assert.False(t, client.IsActive("MOBILE_CHECKOUT", molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"foo": "bar",
 		},
 	}))
@@ -223,14 +223,14 @@ func TestOtherSegments(t *testing.T) {
 	}
 	experimentUser := molasses.User{
 		ID: "1235",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser":    "false",
 			"experimentUser": "yes",
 		},
 	}
 	controlUser := molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser":    "true",
 			"experimentUser": "nope",
 		},
@@ -241,14 +241,14 @@ func TestOtherSegments(t *testing.T) {
 	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]string{})
 	assert.False(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "1",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
 
 	assert.True(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "2",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
@@ -329,6 +329,131 @@ func TestMoreSegments(t *testing.T) {
 									"percentage": 50
 								}
 							]
+						},
+						{
+							"id": "f603f621-83ba-46f0-adf5-70ed2d668646",
+							"key": "other_types",
+							"description": "This tests a headline",
+							"active": true,
+							"segments": [
+								{
+									"segmentType": "alwaysControl",
+									"userConstraints": [
+										{
+											"operator": "equals",
+											"values": "true",
+											"userParam": "controlUser",
+											"userParamType": "bool"
+										},
+										{
+											"operator": "doesNotEqual",
+											"values": "true",
+											"userParam": "experimentUser",
+											"userParamType": "bool"
+										}
+									],
+									"percentage": 100
+								},
+								{
+									"segmentType": "alwaysExperiment",
+									"constraint":  "any",
+									"userConstraints": [
+										{
+											"operator": "equals",
+											"values": 1235,
+											"userParam": "userId",
+											"userParamType": "number"
+										},
+
+										{
+											"operator": "gte",
+											"values": "14588.007",
+											"userParam": "id",
+											"userParamType": "number"
+										}
+									],
+									"percentage": 100
+								},
+								{
+									"segmentType": "everyoneElse",
+									"userConstraints": [
+										{
+											"operator": "all",
+											"values": "",
+											"userParam": "",
+											"userParamType": ""
+										}
+									],
+									"percentage": 100
+								}
+								]
+						},
+						{
+							"id": "f603f621-83ba-46f0-adf5-70ed2d668646",
+							"key": "numbers",
+							"description": "This tests a headline",
+							"active": true,
+							"segments": [
+								{
+									"segmentType": "alwaysControl",
+									"userConstraints": [
+										{
+											"operator": "equals",
+											"values": "500",
+											"userParam": "controlUser",
+											"userParamType": "number"
+										},
+										{
+											"operator": "doesNotEqual",
+											"values": "42",
+											"userParam": "experimentUser",
+											"userParamType": "number"
+										},
+
+										{
+											"operator": "lt",
+											"values": "14588.007",
+											"userParam": "lt",
+											"userParamType": "number"
+										},
+
+										{
+											"operator": "lte",
+											"values": "14588.007",
+											"userParam": "lte",
+											"userParamType": "number"
+										}
+
+									],
+									"percentage": 100
+								},
+								{
+									"segmentType": "alwaysExperiment",
+									"constraint":  "any",
+									"userConstraints": [
+										{
+											"operator": "gt",
+											"values": "1235",
+											"userParam": "userId",
+											"userParamType": "number"
+										}
+
+									],
+									"percentage": 100
+								},
+								{
+									"segmentType": "everyoneElse",
+									"userConstraints": [
+										{
+											"operator": "all",
+											"values": "",
+											"userParam": "",
+											"userParamType": ""
+										}
+									],
+									"percentage": 0
+								}
+							]
 						}
 					]
 				}
@@ -355,18 +480,20 @@ func TestMoreSegments(t *testing.T) {
 	}
 	experimentUser := molasses.User{
 		ID: "1235",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"experimentUser": "yes",
 		},
 	}
 	controlUser := molasses.User{
 		ID: "1234",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser":    "true",
 			"experimentUser": "nope",
 		},
 	}
 	assert.False(t, client.IsActive("GOOGLE_SSO", controlUser))
+	client.ExperimentStarted("GOOGLE_SSO", controlUser, map[string]string{})
+	client.Track("Checkout Started", controlUser, map[string]string{})
 	client.ExperimentSuccess("GOOGLE_SSO", controlUser, map[string]string{})
 	assert.True(t, client.IsActive("GOOGLE_SSO", experimentUser))
 	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]string{
@@ -375,17 +502,66 @@ func TestMoreSegments(t *testing.T) {
 	})
 	assert.False(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "5",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
 
 	assert.True(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "2",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"controlUser": "bar",
 		},
 	}))
+
+	experimentUser = molasses.User{
+		ID: "1235",
+		Params: map[string]interface{}{
+			"userId": 1235,
+		},
+	}
+	controlUser = molasses.User{
+		ID: "1234",
+		Params: map[string]interface{}{
+			"controlUser":    true,
+			"experimentUser": false,
+		},
+	}
+	user1 := molasses.User{
+		ID: "1236",
+		Params: map[string]interface{}{
+			"controlUser": false,
+		},
+	}
+	assert.False(t, client.IsActive("other_types", controlUser))
+	assert.True(t, client.IsActive("other_types", experimentUser))
+	assert.True(t, client.IsActive("other_types", user1))
+	assert.True(t, client.IsActive("other_types", molasses.User{
+		ID: "500000",
+	}))
+
+	assert.True(t, client.IsActive("other_types", molasses.User{
+		ID: "2",
+		Params: map[string]interface{}{
+			"controlUser": "bar",
+		},
+	}))
+	assert.False(t, client.IsActive("numbers", molasses.User{
+		ID: "2",
+		Params: map[string]interface{}{
+			"controlUser":    500,
+			"experimentUser": 43,
+			"lt":             -14580,
+			"lte":            "14588.007",
+		},
+	}))
+	assert.True(t, client.IsActive("numbers", molasses.User{
+		ID: "2",
+		Params: map[string]interface{}{
+			"userId": 5235,
+		},
+	}))
+
 	client.Stop()
 	time.Sleep(1 * time.Second)
 	assert.False(t, client.IsInitiated())
