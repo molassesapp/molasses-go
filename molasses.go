@@ -33,9 +33,9 @@ type ClientInterface interface {
 	IsActive(key string, user ...User) bool
 	Stop()
 	IsInitiated() bool
-	Track(eventName string, user User, additionalDetails map[string]string)
-	ExperimentStarted(key string, user User, additionalDetails map[string]string)
-	ExperimentSuccess(key string, user User, additionalDetails map[string]string)
+	Track(eventName string, user User, additionalDetails map[string]interface{})
+	ExperimentStarted(key string, user User, additionalDetails map[string]interface{})
+	ExperimentSuccess(key string, user User, additionalDetails map[string]interface{})
 }
 
 type HttpClient interface {
@@ -181,7 +181,7 @@ func (c *client) IsInitiated() bool {
 	return c.initiated
 }
 
-func (c *client) ExperimentStarted(key string, user User, additionalDetails map[string]string) {
+func (c *client) ExperimentStarted(key string, user User, additionalDetails map[string]interface{}) {
 
 	if !c.initiated {
 		return
@@ -211,7 +211,7 @@ func (c *client) ExperimentStarted(key string, user User, additionalDetails map[
 	}
 }
 
-func (c *client) Track(eventName string, user User, additionalDetails map[string]string) {
+func (c *client) Track(eventName string, user User, additionalDetails map[string]interface{}) {
 
 	for k, v := range additionalDetails {
 		user.Params[k] = v
@@ -226,7 +226,7 @@ func (c *client) Track(eventName string, user User, additionalDetails map[string
 	}
 }
 
-func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[string]string) {
+func (c *client) ExperimentSuccess(key string, user User, additionalDetails map[string]interface{}) {
 
 	if !c.initiated {
 		return

@@ -236,9 +236,9 @@ func TestOtherSegments(t *testing.T) {
 		},
 	}
 	assert.False(t, client.IsActive("GOOGLE_SSO", controlUser))
-	client.ExperimentSuccess("GOOGLE_SSO", controlUser, map[string]string{})
+	client.ExperimentSuccess("GOOGLE_SSO", controlUser, map[string]interface{}{})
 	assert.True(t, client.IsActive("GOOGLE_SSO", experimentUser))
-	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]string{})
+	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]interface{}{})
 	assert.False(t, client.IsActive("GOOGLE_SSO", molasses.User{
 		ID: "1",
 		Params: map[string]interface{}{
@@ -492,11 +492,11 @@ func TestMoreSegments(t *testing.T) {
 		},
 	}
 	assert.False(t, client.IsActive("GOOGLE_SSO", controlUser))
-	client.ExperimentStarted("GOOGLE_SSO", controlUser, map[string]string{})
-	client.Track("Checkout Started", controlUser, map[string]string{})
-	client.ExperimentSuccess("GOOGLE_SSO", controlUser, map[string]string{})
+	client.ExperimentStarted("GOOGLE_SSO", controlUser, map[string]interface{}{})
+	client.Track("Checkout Started", controlUser, map[string]interface{}{})
+	client.ExperimentSuccess("GOOGLE_SSO", controlUser, map[string]interface{}{})
 	assert.True(t, client.IsActive("GOOGLE_SSO", experimentUser))
-	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]string{
+	client.ExperimentSuccess("GOOGLE_SSO", experimentUser, map[string]interface{}{
 		"experiment_id": "hello",
 		"button_color":  "green",
 	})
