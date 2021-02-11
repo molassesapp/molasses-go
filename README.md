@@ -63,10 +63,10 @@ If you want to track any event call the `Track` method. `Track` takes the event'
 ```go
 client.Track("Checkout Submitted", molasses.User{
 		ID: "baz",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"teamId": "12356",
 		},
-	}, map[string]string{
+	}, map[string]interface{}{
 		"version": "v2.3.0"
 	})
 ```
@@ -78,10 +78,10 @@ To track the start of an experiment, you can call `ExperimentStarted`. Experimen
 ```go
 client.ExperimentStarted("GOOGLE_SSO", molasses.User{
 		ID: "baz",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"teamId": "12356",
 		},
-	}, map[string]string{
+	}, map[string]interface{}{
 		"version": "v2.3.0"
 	})
 ```
@@ -91,10 +91,10 @@ To track whether an experiment was successful you can call `ExperimentSuccess`. 
 ```go
 client.ExperimentSuccess("GOOGLE_SSO", molasses.User{
 		ID: "baz",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"teamId": "12356",
 		},
-	}, map[string]string{
+	}, map[string]interface{}{
 		"version": "v2.3.0"
 	})
 ```
@@ -123,7 +123,7 @@ func main() {
 
 	if client.IsActive("Another feature", molasses.User{
 		ID: "baz",
-		Params: map[string]string{
+		Params: map[string]interface{}{
 			"teamId": "12356",
 		},
 	}) {
