@@ -7,6 +7,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"golang.org/x/mod/semver"
 )
 
 type feature struct {
@@ -136,6 +138,14 @@ func isUserInSegment(user User, s featureSegment) bool {
 			userValue = user.ID
 		}
 		switch constraint.UserParamType {
+		case "semver":
+			v, err := getStringValue(userValue)
+			if err != nil {
+				continue
+			}
+			if meetsConstraintForSemVer(v, paramExists, constraint) {
+				constraintsMet = constraintsMet + 1
+			}
 		case "number":
 			v, err := getFloat64Value(userValue)
 			if err != nil {
@@ -206,6 +216,41 @@ func getStringValue(value interface{}) (string, error) {
 		return fmt.Sprintf("%v", v), nil
 	}
 	return "", errors.New("not valid value")
+}
+
+func meetsConstraintForSemVer(v string, paramExists bool, constraint userConstraint) bool {
+	if !paramExists {
+		return false
+	}
+	comparison := semver.Compare(v, constraint.Values)
+	switch constraint.Operator {
+	case equals:
+		if comparison == 0 {
+			return true
+		}
+	case doesNotEqual:
+		if comparison != 0 {
+			return true
+		}
+	case gt:
+		if comparison > 0 {
+			return true
+		}
+	case lt:
+		if comparison < 0 {
+			return true
+		}
+	case gte:
+		if comparison >= 0 {
+			return true
+		}
+	case lte:
+		if comparison <= 0 {
+			return true
+		}
+
+	}
+	return false
 }
 
 func meetsConstraintForBool(userValue bool, paramExists bool, constraint userConstraint) bool {
